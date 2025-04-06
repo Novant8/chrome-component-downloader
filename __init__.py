@@ -28,35 +28,42 @@ def _get_headers(req: dict) -> dict:
         "content-type": "application/json",
     }
 
-def _request_update_urls(component_id: str, target_version = "", send_system_info = False) -> list[str] | None:
+def _request_update(component_id: str, target_version = "", send_system_info = False) -> tuple[str, list[str]] | None:
     req = update_request.generate(component_id, target_version, send_system_info)
     req_str = json.dumps(req)
 
     try:
         res = requests.post(_get_url(req_str), headers=_get_headers(req), data=req_str)
     except requests.RequestException as e:
-        return None
+        raise DownloadFailedException() from e
     
     res_str = res.text.lstrip(")]}'\n")
     res_json = json.loads(res_str)
 
     app = res_json.get("response", {}).get("app", [None])[0]
     if app is None:
-        return None
+        raise DownloadFailedException()
     
     app_updatecheck = app.get("updatecheck")
 
-    if app_updatecheck is None or app_updatecheck["status"] != "ok":
+    if app_updatecheck is None:
+        raise DownloadFailedException()
+
+    if app_updatecheck["status"] != "ok":
         return None
 
     manifest = app_updatecheck.get("manifest")
     if manifest is None:
-        return None
+        raise DownloadFailedException()
 
     urls = app_updatecheck.get("urls", {}).get("url", [])
     name = manifest.get("packages", {}).get("package", [{}])[0].get("name")
+    version = manifest.get("version")
 
-    return [ url["codebase"] + name for url in urls ]
+    if len(urls) == 0 or version is None or name is None: 
+        raise DownloadFailedException()
+
+    return version, [ url["codebase"] + name for url in urls ]
 
 def _get_crx3_contents(crx3: bytes) -> tuple[bytes, bytes]:
     if not crx3.startswith(b"Cr24"):
@@ -87,15 +94,15 @@ def _attempt_download(url: str) -> bytes:
     
     return content
 
-def download_chromium_component(component_id: str, target_version = "", send_system_info = False) -> ZipFile:
-    urls = _request_update_urls(component_id, target_version, send_system_info)
+def download_chromium_component(component_id: str, target_version = "", send_system_info = False) -> tuple[ZipFile | None, str | None]:
+    version, urls = _request_update(component_id, target_version, send_system_info)
     if urls is None:
-        raise DownloadFailedException()
+        return None, None
 
     for url in urls:
         try:
             zip_bytes = _attempt_download(url)
-            return ZipFile(io.BytesIO(zip_bytes), mode="r")
+            return ZipFile(io.BytesIO(zip_bytes), mode="r"), version
         except DownloadFailedException:
             continue
     raise DownloadFailedException()
