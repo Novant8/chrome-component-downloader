@@ -1,5 +1,6 @@
 import argparse
 import re
+import os
 from .chromium_components import CHROMIUM_COMPONENT_IDS
 from . import download_component
 from .errors import DownloadFailedException
@@ -60,8 +61,16 @@ def main():
     print("Component downloaded successfully. Saving to file...")
     try:
         filename = args.output or f"{component_id}-{downloaded_version}.zip"
+        
+        # Create output directory if it doesn't exist
+        outdir = os.path.dirname(filename) or "."
+        if not os.path.isdir(outdir):
+            os.mkdir(outdir)
+        
+        # Save file
         with open(filename, "wb") as outfile:
             outfile.write(zipfile)
+        
         print(f"Saved as '{filename}'.")
     except Exception as e:
         parser.error(f"Failed to save the ZIP file: {e}")
