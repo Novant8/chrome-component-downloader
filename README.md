@@ -102,3 +102,13 @@ Download a specific component:
 ```shell
 chrome-component-downloader privacy_sandbox_attestations --target_version 2025.03.31
 ```
+
+### Docker container
+
+The CLI tool can also be used as a Docker container. You can use the `salb98/chrome-component-downloader` pre-compiled image. Here is an example command:
+
+```shell
+docker run -v ./output:/app/out:rw salb98/chrome-component-downloader privacy_sandbox_attestations --output /app/out/component.zip
+```
+
+This creates and saves the component zip in the `output/` folder in your current working directory.

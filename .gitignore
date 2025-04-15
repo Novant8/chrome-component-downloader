@@ -175,4 +175,5 @@ pyrightconfig.json
 
 # End of https://www.toptal.com/developers/gitignore/api/python
 
-# Downloads folder for testing
+# Docker output folder
+output
