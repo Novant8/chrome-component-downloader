@@ -3,6 +3,7 @@ import platform
 import psutil
 import ctypes
 import subprocess
+import sys
 
 USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
 OMAHA_VERSION = "1.3.36.261"
@@ -24,16 +25,29 @@ def _get_physmemory() -> int:
     Returns the physical memory of the system in GB.
     :return: The physical memory of the system in GB.
     """
-    if platform.system() == "Linux":
-        with open("/proc/meminfo", "r") as f:
-            for line in f:
-                if "MemTotal" in line:
-                    mem = int(line.split()[1]) / 1024 / 1024
-                    return int(mem)
-    elif platform.system() == "Windows":
-        return int(psutil.virtual_memory().total / (1024 ** 3))
-    else:
-        raise ValueError("Unsupported operating system")
+    try:
+        if platform.system() == "Linux":
+            with open("/proc/meminfo", "r") as f:
+                for line in f:
+                    if "MemTotal" in line:
+                        mem = int(line.split()[1]) / 1024 / 1024
+                        return int(mem)
+        elif platform.system() == "Windows":
+            return int(psutil.virtual_memory().total / (1024 ** 3))
+        elif platform.system() == "Darwin":
+            result = subprocess.run(
+                ["sysctl", "hw.memsize"],
+                capture_output=True,
+                text=True,
+                check=True
+            )
+            mem_bytes = int(result.stdout.split(":")[1].strip())
+            return int(mem_bytes / (1024 ** 3))
+        else:
+            raise ValueError("Unsupported operating system")
+    except:
+        print("Warning: Failed to retrieve physical memory. Using default value (8GB)", file=sys.stderr)
+        return 8
 
 def _get_support_flags() -> dict:
     """
@@ -42,25 +56,25 @@ def _get_support_flags() -> dict:
     """
     FLAGS = [ "avx", "avx2", "sse", "sse2", "sse3", "sse4_1", "sse4_2", "ssse3" ]
     sse_support = { flag: False for flag in FLAGS }
-    if platform.system() == "Linux":
-        with open("/proc/cpuinfo", "r") as f:
-            supported_flags = []
-            for line in f:
-                if line.startswith("flags"):
-                    supported_flags = line.split(":")[1].strip().split(" ")
-                    break
-            for flag in FLAGS:
-                if flag in supported_flags:
-                    sse_support[flag] = True
-    elif platform.system() == "Windows":
-        kernel32 = ctypes.windll.kernel32
-        sys_info = kernel32.GetSystemInfo()
-        if sys_info.dwProcessorType == 586:
-            for flag in FLAGS:
-                if flag in sys_info.dwProcessorType:
-                    sse_support[flag] = True
-    elif platform.system() == "Darwin":
-        try:
+    try:
+        if platform.system() == "Linux":
+            with open("/proc/cpuinfo", "r") as f:
+                supported_flags = []
+                for line in f:
+                    if line.startswith("flags"):
+                        supported_flags = line.split(":")[1].strip().split(" ")
+                        break
+                for flag in FLAGS:
+                    if flag in supported_flags:
+                        sse_support[flag] = True
+        elif platform.system() == "Windows":
+            kernel32 = ctypes.windll.kernel32
+            sys_info = kernel32.GetSystemInfo()
+            if sys_info.dwProcessorType == 586:
+                for flag in FLAGS:
+                    if flag in sys_info.dwProcessorType:
+                        sse_support[flag] = True
+        elif platform.system() == "Darwin":
             result = subprocess.run(
                 ["sysctl", "machdep.cpu.features"],
                 capture_output=True,
@@ -71,8 +85,10 @@ def _get_support_flags() -> dict:
             for flag in FLAGS:
                 if flag.upper() in supported_flags:
                     sse_support[flag] = True
-        except Exception as e:
-            raise RuntimeError(f"Failed to retrieve CPU flags on macOS: {e}")
+        else:
+            raise ValueError("Unsupported operating system")
+    except:
+        print("Warning: Failed to retrieve CPU flags. Assuming none are active.", file=sys.stderr)
 
     return sse_support
 
