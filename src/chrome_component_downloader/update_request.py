@@ -2,6 +2,7 @@ from uuid import uuid4
 import platform
 import psutil
 import ctypes
+import subprocess
 
 USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
 OMAHA_VERSION = "1.3.36.261"
@@ -58,6 +59,21 @@ def _get_support_flags() -> dict:
             for flag in FLAGS:
                 if flag in sys_info.dwProcessorType:
                     sse_support[flag] = True
+    elif platform.system() == "Darwin":
+        try:
+            result = subprocess.run(
+                ["sysctl", "machdep.cpu.features"],
+                capture_output=True,
+                text=True,
+                check=True
+            )
+            supported_flags = result.stdout.split(":")[1].strip().split(" ")
+            for flag in FLAGS:
+                if flag.upper() in supported_flags:
+                    sse_support[flag] = True
+        except Exception as e:
+            raise RuntimeError(f"Failed to retrieve CPU flags on macOS: {e}")
+
     return sse_support
 
 def generate(component_id: str, target_version = "", send_system_info = False) -> dict:

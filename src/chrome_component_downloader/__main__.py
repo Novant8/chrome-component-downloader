@@ -1,18 +1,11 @@
 import argparse
 import re
-import zipfile
 from .chromium_components import CHROMIUM_COMPONENT_IDS
-from . import download_chromium_component
+from . import download_component
 from .errors import DownloadFailedException
 
 def validate_id(id: str):
     return bool(re.fullmatch(r"[a-z0-9]{32}", id))
-
-def save_zip_to_file(zip, filename):
-    with zipfile.ZipFile(filename, 'w') as output_zip:
-        for file_name in zip.namelist():
-            file_data = zip.read(file_name)
-            output_zip.writestr(file_name, file_data)
 
 def main():
     parser = argparse.ArgumentParser(description="""
@@ -54,7 +47,7 @@ def main():
 
     print("Attempting to download component...")
     try:
-        zipfile, downloaded_version = download_chromium_component(
+        zipfile, downloaded_version = download_component(
             component_id,
             target_version=args.target_version,
             send_system_info=args.send_system_info
@@ -67,8 +60,8 @@ def main():
     print("Component downloaded successfully. Saving to file...")
     try:
         filename = args.output or f"{component_id}-{downloaded_version}.zip"
-        save_zip_to_file(zipfile, filename)
-        zipfile.close()
+        with open(filename, "wb") as outfile:
+            outfile.write(zipfile)
         print(f"Saved as '{filename}'.")
     except Exception as e:
         parser.error(f"Failed to save the ZIP file: {e}")

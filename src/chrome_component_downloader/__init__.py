@@ -2,9 +2,7 @@ import random
 import base64
 import hashlib
 import json
-import io
 import requests
-from zipfile import ZipFile
 from .errors import DownloadFailedException, NotCrx3FileException, InvalidComponentException
 from . import update_request
 
@@ -37,8 +35,11 @@ def _request_update(component_id: str, target_version = "", send_system_info = F
     except requests.RequestException as e:
         raise DownloadFailedException() from e
     
-    res_str = res.text.lstrip(")]}'\n")
-    res_json = json.loads(res_str)
+    try:
+        res_str = res.text.lstrip(")]}'\n ")
+        res_json = json.loads(res_str)
+    except json.JSONDecodeError:
+        raise DownloadFailedException()
 
     app = res_json.get("response", {}).get("app", [None])[0]
     if app is None:
@@ -94,7 +95,7 @@ def _attempt_download(url: str) -> bytes:
     
     return content
 
-def download_chromium_component(component_id: str, target_version = "", send_system_info = False) -> tuple[ZipFile | None, str | None]:
+def download_component(component_id: str, target_version = "", send_system_info = False) -> tuple[bytes | None, str | None]:
     version, urls = _request_update(component_id, target_version, send_system_info)
     if urls is None:
         return None, None
@@ -102,7 +103,7 @@ def download_chromium_component(component_id: str, target_version = "", send_sys
     for url in urls:
         try:
             zip_bytes = _attempt_download(url)
-            return ZipFile(io.BytesIO(zip_bytes), mode="r"), version
+            return zip_bytes, version
         except DownloadFailedException:
             continue
     raise DownloadFailedException()
