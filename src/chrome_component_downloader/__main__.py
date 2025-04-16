@@ -15,10 +15,11 @@ def main():
     """,
     formatter_class=argparse.RawTextHelpFormatter
     )
+    component_list = "\n".join(f"- {name}" for name in CHROMIUM_COMPONENT_IDS.keys())
     parser.add_argument(
         "component",
         type=str,
-        help=f"The component's ID or name. The component names can be one of the following: \n{"\n".join(f"- {name}" for name in CHROMIUM_COMPONENT_IDS.keys())}"
+        help=f"The component's ID or name. The component names can be one of the following: \n{component_list}"
     )
     parser.add_argument(
         "--target_version",

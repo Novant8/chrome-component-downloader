@@ -3,6 +3,7 @@ import base64
 import hashlib
 import json
 import requests
+from typing import Union
 from .errors import DownloadFailedException, NotCrx3FileException, InvalidComponentException
 from . import update_request
 
@@ -18,15 +19,17 @@ def _get_url(req_body_str: str) -> str:
     return f"{GOOGLE_UPDATE_URL}?cup2key={key_number}:{nonce_b64}&cup2hreq={req_hash}"
 
 def _get_headers(req: dict) -> dict:
+    req_updater = req["request"]['@updater']
+    req_updater_version = req["request"]['prodversion']
     return {
         "x-goog-update-appid": req["request"]["app"][0]["appid"],
         "x-goog-update-interactivity": "fg",
-        "x-goog-update-updater": f"{req["request"]['@updater']}-{req["request"]['prodversion']}",
+        "x-goog-update-updater": f"{req_updater}-{req_updater_version}",
         # "user-agent": USER_AGENT,
         "content-type": "application/json",
     }
 
-def _request_update(component_id: str, target_version = "", send_system_info = False) -> tuple[str, list[str]] | None:
+def _request_update(component_id: str, target_version = "", send_system_info = False) -> Union[tuple[str, list[str]], None]:
     req = update_request.generate(component_id, target_version, send_system_info)
     req_str = json.dumps(req)
 
@@ -95,7 +98,7 @@ def _attempt_download(url: str) -> bytes:
     
     return content
 
-def download_component(component_id: str, target_version = "", send_system_info = False) -> tuple[bytes | None, str | None]:
+def download_component(component_id: str, target_version = "", send_system_info = False) -> tuple[Union[bytes, None], Union[str, None]]:
     version, urls = _request_update(component_id, target_version, send_system_info)
     if urls is None:
         return None, None
