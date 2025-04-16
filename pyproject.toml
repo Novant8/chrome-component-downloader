@@ -1,6 +1,6 @@
 [project]
 name = "chrome-component-downloader"
-version = "0.1.1"
+version = "0.1.2"
 description = "A Python module and CLI tool to manually download Chrome/Chromium components."
 authors = [
     {name = "Alberto Verna",email = "alberto.verna@hotmail.com"}
