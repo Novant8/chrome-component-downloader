@@ -88,10 +88,14 @@ def _verify_header(header: bytes) -> bool:
     return True
 
 def _attempt_download(url: str) -> bytes:
-    res = requests.get(url)
+    try:
+        res = requests.get(url)
+    except requests.RequestException as e:
+        raise DownloadFailedException() from e
+
     if res.status_code != 200:
         raise DownloadFailedException()
-    
+
     header, content = _get_crx3_contents(res.content)
     if not _verify_header(header):
         raise InvalidComponentException()
